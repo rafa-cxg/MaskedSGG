@@ -1,0 +1,74 @@
+ # Copyright (c) 2022, salesforce.com, inc.
+ # All rights reserved.
+ # SPDX-License-Identifier: BSD-3-Clause
+ # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+model:
+  arch: SggpFinetunevitdet
+  model_type: base_cc3m
+#  load_finetuned: False # false means  training on pretrained rather finetuned models
+  load_pretrained: True
+#  pretrained: "checkpoint_340000.pth"
+  pretrained: "checkpoint_best.pth"
+#  load_finetuned : True
+#  finetuned: "/home/cxg/projectX/lavis/output/sggp/finetune/20230616144/checkpoint_best.pth"
+  num_classes: 30522 #todo what is it used for?
+  predict_mode: "bert"
+  task_mode: "sgdet"   #"sgdet"
+  detector_config_path: "common/models/mask_rcnn_vitdet_finetune.py"
+#  META_ARCHITECTURE: "GeneralizedRCNN" # detector arch
+
+datasets:
+  visual_genome: # name of the dataset builder
+    vis_processor:
+
+      train:
+        mean: [ 102.9801, 115.9465, 122.7717 ]
+        std: [ 1., 1., 1. ]
+        name: "sggp_finetune_train"
+        min_size: 1024
+        max_size: 1024
+        low_res_min_size: 224
+        low_res_max_size: 224
+        flip_horizontal_prob: 0.5
+        flip_vertical_prob: 0.
+
+
+      eval:
+        mean: [ 102.9801, 115.9465, 122.7717 ]
+        std: [ 1., 1., 1. ]
+        name:  "sggp_finetune_eval"
+        image_size: 1024
+
+run:
+  task: scene_graph_generation
+  # optimization-specific
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr:  1e-5 # 2e-3
+  min_lr: 1e-6 #1e-5
+  weight_decay: 0.05
+  max_epoch: 50 #20
+  warmup_lr: 1e-6
+  warmup_steps: 8000
+  batch_size_train: 1 #6
+  accum_grad_iters: 1
+  batch_size_eval: 1
+  num_workers: 0 #8
+
+
+  seed: 42
+  output_dir: "output/sggp/finetune"
+
+  amp: False
+#  resume_ckpt_path: "/home/cxg/projectX/lavis/output/sggp/finetune/20230628105/checkpoint_best.pth"
+
+  evaluate: False
+  train_splits: ["train"]
+  valid_splits: ["eval"] #be carefulllllll!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  test_splits: [] # 如果不是[], 就会test
+
+  # distribution-specific
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True
