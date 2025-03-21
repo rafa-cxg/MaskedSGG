@@ -1,0 +1,37 @@
+model:
+  arch: SggpFinetune
+  model_type: base_cc3m
+
+datasets:
+  visual_genome: # name of the dataset builder
+    vis_processor:
+        eval:
+          name: "blip_image_eval"
+          image_size: 384
+    text_processor:
+        eval:
+          name: "blip_caption"
+
+run:
+  task: multimodal_classification
+
+  # dataloading
+  num_workers: 4
+  batch_size_eval: 1
+
+  test_splits: ["test"]
+
+  # distribution
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True
+  use_dist_eval_sampler: False
+
+
+
+  # misc
+  seed: 42
+  output_dir: "output/sggp/relation_vg"
+
+  evaluate: True

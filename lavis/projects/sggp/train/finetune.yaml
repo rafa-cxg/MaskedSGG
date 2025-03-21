@@ -1,0 +1,81 @@
+ # Copyright (c) 2022, salesforce.com, inc.
+ # All rights reserved.
+ # SPDX-License-Identifier: BSD-3-Clause
+ # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+model:
+  arch: SggpFinetune
+  model_type: base_cc3m
+#  load_finetuned: False # false means  training on pretrained rather finetuned models
+  load_pretrained: False
+  pretrained:  "pretrain_always_warmup_frombert_8_8_60000.pth" #"checkpoint_340000.pth"
+#  pretrained: "checkpoint_best.pth"
+  load_finetuned : False
+  finetuned: "checkpoint_best_old_predcls.pth" #"/home/cxg/projectX/lavis/output/sggp/finetune/20230616144/checkpoint_best.pth"
+  num_classes: 51 #todo what is it used for?
+  predict_mode: "bert"
+  task_mode: "sgdet"   #"sgdet"
+  detector_config_path:  "lavis/configs/models/e2e_relation_X_101_32_8_FPN_1x.yaml"  #"common/models/mask_rcnn_vitdet_pretrain.py"
+#  META_ARCHITECTURE: "GeneralizedRCNN" # detector arch
+  train_detector_only: False
+
+datasets:
+  visual_genome: # name of the dataset builder
+    vis_processor:
+
+      train:
+#        mean: [ 102.9801, 115.9465, 122.7717 ]
+#        std: [ 1., 1., 1. ]
+        name: "sggp_finetune_train"
+        min_size: 600
+#        min_size: 1024
+        max_size: 800
+        low_res_min_size: 224
+        low_res_max_size: 224
+        flip_horizontal_prob: 0.5
+        flip_vertical_prob: 0.
+
+
+
+      eval:
+#        mean: [ 102.9801, 115.9465, 122.7717 ]
+#        std: [ 1., 1., 1. ]
+        name:  "sggp_finetune_eval"
+        min_size: 600
+        max_size: 800
+
+
+run:
+  task: scene_graph_generation
+  # optimization-specific
+  lr_sched: "linear_warmup_milestones_step_lr"
+  init_lr:  2e-3 # 2e-3
+  min_lr: 1e-6 #1e-5
+  weight_decay: 0.05
+  milestones: [30,40,50]
+  max_epoch: 150 #20
+  warmup_lr: 1e-6
+  lr_decay_rate: 0.1
+  warmup_steps: 8000
+  batch_size_train:   1 #6
+  accum_grad_iters: 1
+  batch_size_eval: 1
+  num_workers: 0 #8
+
+
+  seed: 42
+  output_dir: "output/sggp/finetune"
+
+  amp: False
+#  resume_ckpt_path: "/home/cxg/projectX/lavis/output/sggp/finetune/20230628105/checkpoint_best.pth"
+
+  evaluate: True
+  train_splits: ["train"]
+  valid_splits: ["eval"] #be carefulllllll!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  test_splits: [] # 如果不是[], 就会test
+
+  # distribution-specific
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True

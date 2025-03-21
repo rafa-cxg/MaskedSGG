@@ -1,0 +1,151 @@
+model:
+
+  arch: SggpFinetune
+  load_finetuned: False
+
+#  pretrained: "https://storage.googleapis.com/sfr-pcl-data-research/ALBEF/ALBEF.pth" #两阶段初始化的时候用
+  finetuned: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/ALBEF/albef_coco_retrieval_lavis.pt"
+
+  queue_size: 65536
+  detector_config_path: "common/models/mask_rcnn_vitdet_finetune.py"  #"lavis/configs/models/GroundingDINO_SwinB_cfg.py" #"common/models/mask_rcnn_vitdet_pretrain.py" one is for grounding dino, another one is for vitdet
+#  detector:
+#    PIXEL_MEAN: [123.675, 116.28, 103.53]
+#    MODEL:
+#      type: SimpleFeaturePyramid
+#
+#      BACKBONE:
+#        NAME:  SimpleFeaturePyramid
+#        net: vit
+#        vit:
+#          img_size: 1024
+#          patch_size: 16
+#          embed_dim: 768
+#          depth: 12
+#          num_heads: 12
+#          drop_path_rate: 0.1
+#          window_size: 14
+#          mlp_ratio: 4
+#          qkv_bias: True
+#    #      norm_layerpartial(nn.LayerNorm, eps=1e-6),
+#          window_block_indexes: [0,1,3,4,6,7,9,10] # 2, 5, 8 11 for global attention
+#          residual_block_indexes: []
+#          use_rel_pos: True
+#          out_feature: "last_feat"
+#        in_feature: "${.vit.out_feature}"
+#        out_channels: 256
+#        scale_factors: [4.0, 2.0, 1.0, 0.5]
+#        top_block: LastLevelMaxPool
+#        norm: "LN"
+#        square_pad: 1024
+#      roi_heads:
+#        box_head:
+#          conv_norm: "LN"
+#        # 4conv1fc box head
+#        conv_dims: [256, 256, 256, 256]
+#        fc_dims : [1024]
+#      # 2conv in RPN:
+#      proposal_generator:
+#        head:
+#          conv_dims: [-1, -1]
+  # vit encoder， temporally different from videt's vit
+  vit_type: "base"
+  image_size: 1024
+  vit_ckpt_layer: 0
+  vit_drop_path_rate: 0
+  vit_layer_norm_epsilon: 1e-6
+  vit_grad_ckpt: False
+  window_size: 14 # for swin-like operation
+
+  #for fpn,
+  scale_factors: [4.0, 2.0, 1.0, 0.5 ]
+  out_channels: 256
+  "encoder_width": 768 # 要和bert.json中的保持一致
+
+  # bert config
+  med_config_path: "configs/models/sggp_text_bert.json"
+  unified_med_config_path: "configs/models/sggp_unified_bert.json"
+  embed_dim: 256
+  momentum: 0.995
+  alpha: 0.4
+  temp: 0.07
+  use_distill: False
+
+  max_txt_len: 30 #caution: keep it same in "sggp_unified_bert.json"
+
+
+  RPN:
+    IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
+    MIN_SIZE: 0.0
+    BATCH_SIZE_PER_IMAGE: 256
+    POSITIVE_FRACTION: 0.5
+    PRE_NMS_TOPK_TRAIN: 2000
+    PRE_NMS_TOPK_TEST: 1000
+    POST_NMS_TOPK_TRAIN: 1000
+    POST_NMS_TOPK_TEST: 1000
+    NMS_THRESH: 0.7
+    BBOX_REG_LOSS_WEIGHT: 1.0
+    LOSS_WEIGHT: 1.0
+    BBOX_REG_LOSS_TYPE: "smooth_l1"
+    SMOOTH_L1_BETA: 0
+    BOUNDARY_THRESH: -1.0
+    HEAD: #rpnhead
+      HEAD_NAME: "StandardRPNHead"
+      IN_CHANNELS: 256
+      NUM_ANCHORS: 3
+      CONV_DIMS: [-1, -1]
+    ANCHOR_GENERATOR:
+      NAME: "DefaultAnchorGenerator"
+      SIZES:  [[32],[64],[128],[256],[512]]  #[[8],[16],[32],[64],[128]]
+      ASPECT_RATIOS: [0.5, 1.0, 2.0]
+      STRIDES: [4, 8, 16, 32, 64]
+      OFFSET: 0.0
+    ANCHOR_MATCHER:
+      THRESHOLDS: [0.3,0.7]
+      LABELS: [0, -1, 1]
+      ALLOW_LOW_QUALITY_MATCHES: True
+    BOX2BOX_TRANSFORM:
+      WEIGHTS: [1.0, 1.0, 1.0, 1.0]
+
+  ROIHEAD:
+    BOX_IN_FEATURES: ["p2", "p3", "p4", "p5"]
+    NUM_CLASSES: 150
+    BATCH_SIZE_PER_IMAGE: 512
+    POSITIVE_FRACTION: 0.25
+    PROPOSAL_MATCHER:
+      THRESHOLDS: [0.5]
+      LABELS: [0, 1]
+      ALLOW_LOW_QUALITY_MATCHES: False
+    BOX_POOLER:
+      OUTPUT_SIZE: 7
+      SCALES: [0.25, 0.125, 0.0625, 0.03125]
+      SAMPLING_RATIO: 0
+      POOLER_TYPE: "ROIAlignV2"
+    BOX_HEAD:
+
+      INPUT_SHAPE:
+        CHANNELS: 256
+        HEIGHT: 7
+        WIDTH: 7
+      CONV_DIMS: [256, 256, 256, 256]
+      FC_DIMS: [1024]
+      CONV_NORM: "LN"
+    BOX_PREDICTOR:
+      INPUT_SHAPE : 1024 #这个是特征维度，应该和BOX_HEAD输出维度保持一致
+      CLS_AGNOSTIC_BBOX_REG: True
+      TEST_TOPK_PER_IMAGE: 80
+      TEST_SCORE_THRESH: 0.01 #0.02# 除非是vitdet，否则这个参数没意义，以上目标检测部分都是为vitdet设计的
+      BOX2BOX_TRANSFORM:
+        WEIGHTS: [10, 10, 5, 5]
+
+  RELATION:
+    REQUIRE_BOX_OVERLAP: False
+    NUM_SAMPLE_PER_GT_REL: 4
+    BATCH_SIZE_PER_IMAGE: 32 #这个是训练时relation正负样本的总数, detect_sampler会用到
+    FG_IOU_THRESHOLD: 0.5 #0.5
+    POSITIVE_FRACTION: 1
+    MAX_PROPOSAL_PAIR: 256 #测试的时候relation的总数
+    USE_GT_BOX: False
+    REQUIRE_OVERLAP: False
+    LATER_NMS_PREDICTION_THRES: 0.5 #用于relationpostsamper
+    TEST:
+      REQUIRE_OVERLAP: False
